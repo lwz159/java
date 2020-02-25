@@ -6,11 +6,15 @@ import androidx.core.app.ActivityCompat;
 import android.Manifest;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.TextView;
+
+import java.io.File;
+import java.io.IOException;
 
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
@@ -56,8 +60,20 @@ public class MainActivity extends AppCompatActivity {
             for (int i = 0; i < permissions.length; i++) {
                 if (grantResults[i] == PERMISSION_GRANTED) {
                     // 申请成功
-                    String videoPath = Environment.getExternalStorageDirectory() + "/1.mp4";
-                    playVideo(videoPath, surfaceHolder.getSurface());
+                    String videoPath = Environment.getExternalStorageDirectory() + "/2.mp4";
+                    String videoTargetPath = Environment.getExternalStorageDirectory() + "/3";
+                    File file = new File(videoTargetPath);
+                    if (!file.exists()) {
+                        try {
+                            file.createNewFile();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            return;
+                        }
+                    }
+                    Log.d("TAG", file.canRead() + " " + file.canWrite());
+                    //playVideo(videoPath, surfaceHolder.getSurface());
+                    transferMp4ToAVI(videoPath, Environment.getExternalStorageDirectory().getAbsolutePath() + "/3");
                 } else {
                     // 申请失败
                 }

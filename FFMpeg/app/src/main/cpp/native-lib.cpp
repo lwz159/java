@@ -202,9 +202,9 @@ JNIEXPORT void JNICALL Java_com_example_ffmpegstudy_MainActivity_transferMp4ToAV
         pAvBitStreamFilter = av_bitstream_filter_init("h264_mp4toannexb");
         av_dump_format(pInFormatContext, 0 , pcInputFilePath, 0);
         // 初始化输出视频码流的AVFormatContext
-        avformat_alloc_output_context2(&pOutFormatContext, NULL, NULL, pcOutputFilePath);
+        iRet = avformat_alloc_output_context2(&pOutFormatContext, NULL, NULL, pcOutputFilePath);
         if (pOutFormatContext == NULL) {
-            LOGE("play error: could not create output context");
+            LOGE("play error: could not create output context %d for %s", iRet, pcOutputFilePath);
             iRet = AVERROR_UNKNOWN;
             goto end;
         }
