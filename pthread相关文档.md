@@ -220,19 +220,19 @@
        // Use global JNI ref to hold peer live while child thread starts.
        child_thread->tlsPtr_.jpeer = env->NewGlobalRef(java_peer);
        stack_size = FixStackSize(stack_size);
-     
+        
        // Thread.start is synchronized, so we know that nativePeer is 0, and know that we're not racing to
        // assign it.
        env->SetLongField(java_peer, WellKnownClasses::java_lang_Thread_nativePeer,
                          reinterpret_cast<jlong>(child_thread));
-     
+        
        // Try to allocate a JNIEnvExt for the thread. We do this here as we might be out of memory and
        // do not have a good way to report this on the child's side.
        // 获取线程的JniEnv结构
        std::string error_msg;
        std::unique_ptr<JNIEnvExt> child_jni_env_ext(
            JNIEnvExt::Create(child_thread, Runtime::Current()->GetJavaVM(), &error_msg));
-     
+        
        int pthread_create_result = 0;
        if (child_jni_env_ext.get() != nullptr) {
          pthread_t new_pthread;
@@ -247,7 +247,7 @@
                                                 Thread::CreateCallback,
                                                 child_thread);
          CHECK_PTHREAD_CALL(pthread_attr_destroy, (&attr), "new thread");
-     
+        
          // java线程创建成功的条件
          if (pthread_create_result == 0) {
            // pthread_create started the new thread. The child is now responsible for managing the
@@ -258,7 +258,7 @@
            return;
          }
        }
-     
+        
        // 线程创建失败的处理
        // Either JNIEnvExt::Create or pthread_create(3) failed, so clean up.
        {
@@ -402,3 +402,10 @@
      通过对`pthread_create`创建过程的简单分析，我们可以知道不断创建新的线程而不去释放对应的资源，将会导致虚拟地址空间的耗尽而产生`OOM`，而且和`native`层内存耗尽后只会提示失败不同，由`java`层发起的线程创建则会抛出对应的`OOM`异常，导致应用崩溃。
 
      针对此类问题，除了在代码中需要注意及时释放线程资源以外，还需要考虑合理的执行逻辑，避免写出循环新建线程的代码来。
+     
+     ## 参考
+     
+     - [Android 创建线程源码与OOM分析](https://mp.weixin.qq.com/s/Z7cCCF8jzS6NpVEd0b0Emg?)
+     - [Android pthread_create 源码](http://androidxref.com/8.1.0_r33/xref/bionic/libc/bionic/pthread_create.cpp)
+     - [不可思议的`OOM`](https://mp.weixin.qq.com/s?__biz=MzUxMzcxMzE5Ng==&mid=2247488179&idx=1&sn=46cc1d01571b934d1862995ec7390eda&source=41#wechat_redirect)
+
