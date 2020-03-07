@@ -176,6 +176,90 @@ JNIEXPORT void JNICALL Java_com_example_ffmpegstudy_MainActivity_playVideo(
     env->ReleaseStringUTFChars(path, pcPath);
 }
 
+JNIEXPORT void JNICALL Java_com_example_ffmpegstudy_MainActivity_demuxToGetAudio(
+        JNIEnv *env, jobject thiz, jstring path, jstring targetPath) {
+    const char *pcSrcPath = env->GetStringUTFChars(path, NULL);
+    const char *pcTargetPath = env->GetStringUTFChars(targetPath, NULL);
+    /* 注册FFmpeg组件 */
+    av_register_all();
+    AVFormatContext *pInputFormatContext = NULL;
+    int iRet = avformat_open_input(&pInputFormatContext, pcSrcPath, NULL, NULL);
+    if (iRet < 0) {
+        LOGE("can not open file %s\n", pcSrcPath);
+        return;
+    }
+    /* 查找视频编码器 */
+    int iVideoStreamIndex = -1;
+    for (int i = 0; i < pInputFormatContext->nb_streams; i++) {
+        /* 匹配音频流 */
+        if (pInputFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            iVideoStreamIndex = i;
+        }
+    }
+    /* 没找到音频流 */
+    if (iVideoStreamIndex == -1) {
+        LOGE("Player Error : Can not find audio stream");
+        return;
+    }
+
+    AVStream *pInputStream = pInputFormatContext->streams[iVideoStreamIndex];
+    AVCodecParameters *pInputCodecPar = pInputStream->codecpar;
+
+    AVFormatContext *pOutFormatContext = NULL;
+    iRet = avformat_alloc_output_context2(&pOutFormatContext, NULL, NULL, pcTargetPath);
+    if (pOutFormatContext == NULL) {
+        LOGE("play error: could not create output context %d for %s", iRet, pcTargetPath);
+        iRet = AVERROR_UNKNOWN;
+        return;
+    }
+    AVStream *pOutStream = avformat_new_stream(pOutFormatContext, NULL);
+    if (pOutStream == NULL) {
+        LOGE("创建输出流失败");
+        return;
+    }
+    if ((iRet = avcodec_parameters_copy(pOutStream->codecpar, pInputCodecPar)) < 0) {
+        LOGE("拷贝编码参数失败");
+        return;
+    }
+    if ((iRet = avio_open(&pOutFormatContext->pb, pcTargetPath, AVIO_FLAG_WRITE)) < 0) {
+        LOGE("can not open file %s", pcTargetPath);
+        return;
+    }
+
+    AVPacket packet;
+    av_init_packet(&packet);
+    packet.data = NULL;
+    packet.size = 0;
+    if (avformat_write_header(pOutFormatContext, NULL) < 0) {
+        LOGE("can not write head\n");
+        return;
+    }
+    LOGE("++++++++");
+    while(av_read_frame(pInputFormatContext, &packet) == 0) {
+        LOGE("%lld", packet.pts);
+        if (packet.stream_index == iVideoStreamIndex) {
+            //时间基计算，音频pts和dts一致
+            packet.pts = av_rescale_q_rnd(packet.pts, pInputStream->time_base, pOutStream->time_base, (AV_ROUND_PASS_MINMAX));
+            packet.dts = packet.pts;
+            packet.duration = av_rescale_q(packet.duration, pInputStream->time_base, pOutStream->time_base);
+            packet.pos = -1;
+            packet.stream_index = 0;
+            //将包写到输出媒体文件
+            av_interleaved_write_frame(pOutFormatContext, &packet);
+            //减少引用计数，避免内存泄漏
+            av_packet_unref(&packet);
+        }
+    }
+
+    //写尾部信息
+    av_write_trailer(pOutFormatContext);
+
+    //最后别忘了释放内存
+    avformat_close_input(&pInputFormatContext);
+    avio_close(pOutFormatContext->pb);
+}
+
+
 JNIEXPORT void JNICALL Java_com_example_ffmpegstudy_MainActivity_transferMp4ToAVI(
         JNIEnv *env,
         jobject thiz, jstring path, jstring targetPath) {
