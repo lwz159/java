@@ -373,4 +373,52 @@ JNIEXPORT void JNICALL Java_com_example_ffmpegstudy_MainActivity_transferMp4ToAV
         return;
 }
 
+JNIEXPORT void JNICALL Java_com_example_ffmpegstudy_MainActivity_demuxToGetVideo(JNIEnv *pEnv,
+                                                                                 jobject thiz, jstring path, jstring targetPath) {
+    const char *pcPath = pEnv->GetStringUTFChars(path, NULL);
+    const char *pcTargetPath = pEnv->GetStringUTFChars(targetPath, NULL);
+
+    av_register_all();      // register
+    AVFormatContext *pFormatContext = NULL;
+
+    int iVideoIndex = -1;
+    FILE *pVideoFile = fopen(pcTargetPath, "wb+");
+    AVBitStreamFilterContext *h264bsfc = av_bitstream_filter_init("h264_mp4toannexb");
+
+    if (avformat_open_input(&pFormatContext, pcPath, 0, 0) < 0) {
+        LOGE("could not open input file %s\n", pcPath);
+        goto end;
+    }
+
+    if (avformat_find_stream_info(pFormatContext, 0) < 0) {
+        LOGE("could not retrieve input stream information");
+        goto end;
+    }
+
+    for (int i = 0; i < pFormatContext->nb_streams; i++) {
+        if (pFormatContext->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+            iVideoIndex = i;
+        }
+    }
+
+    AVPacket pkt;
+    while(av_read_frame(pFormatContext, &pkt) >= 0) {
+        if (pkt.stream_index == iVideoIndex) {
+            av_bitstream_filter_filter(h264bsfc, pFormatContext->streams[iVideoIndex]->codec, NULL, &pkt.data, &pkt.size, pkt.data, pkt.size, 0);
+            fwrite(pkt.data, 1, pkt.size, pVideoFile);
+        }
+        av_free_packet(&pkt);
+    }
+
+    av_bitstream_filter_close(h264bsfc);
+
+    end:
+
+        fclose(pVideoFile);
+        avformat_close_input(&pFormatContext);
+
+        pEnv->ReleaseStringUTFChars(path, pcPath);
+        pEnv->ReleaseStringUTFChars(targetPath, pcTargetPath);
+}
+
 }

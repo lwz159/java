@@ -61,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
                 if (grantResults[i] == PERMISSION_GRANTED) {
                     // 申请成功
                     String videoPath = Environment.getExternalStorageDirectory() + "/1.mp4";
-                    String videoTargetPath = Environment.getExternalStorageDirectory() + "/3.AAC";
+                    String videoTargetPath = Environment.getExternalStorageDirectory() + "/3";
                     File file = new File(videoTargetPath);
                     if (!file.exists()) {
                         try {
@@ -73,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     Log.d("TAG", file.canRead() + " " + file.canWrite());
                     //playVideo(videoPath, surfaceHolder.getSurface());
-                    demuxToGetAudio(videoPath, Environment.getExternalStorageDirectory().getAbsolutePath() + "/3.AAC");
+                    demuxToGetVideo(videoPath, Environment.getExternalStorageDirectory().getAbsolutePath() + "/3");
                 } else {
                     // 申请失败
                 }
@@ -90,4 +90,6 @@ public class MainActivity extends AppCompatActivity {
     public native void transferMp4ToAVI(String path, String targetPath);
 
     public native void demuxToGetAudio(String path, String targetPath);
+
+    public native void demuxToGetVideo(String path, String targetPath);
 }
